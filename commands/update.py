@@ -16,31 +16,41 @@ def setup_update(bot, save_memory, periodic_update):
         logging.info("Update command received. Pulling from GitHub...")
         
         try:
-            # Run git pull
-            process = subprocess.Popen(['git', 'pull', '-f', 'https://github.com/migwynkriid/discord-offlinepresence-detector.git', 'master'],
+            # Run git pull with force flags
+            process = subprocess.Popen(['git', 'fetch', 'origin', 'master'],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
             output, error = process.communicate()
             
             if process.returncode == 0:
-                await ctx.send("Update successful! Restarting bot...")
-                logging.info("Git pull successful. Restarting bot...")
+                reset_process = subprocess.Popen(['git', 'reset', '--hard', 'origin/master'],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+                output, error = reset_process.communicate()
                 
-                # Save state and stop periodic updates
-                save_memory()
-                periodic_update.stop()
-                
-                # Restart the bot
-                script_path = os.path.abspath(sys.argv[0])
-                subprocess.Popen([sys.executable, script_path])
-                try:
-                    await bot.close()
-                except:
-                    pass
+                if reset_process.returncode == 0:
+                    await ctx.send("Update successful! Restarting bot...")
+                    logging.info("Git pull successful. Restarting bot...")
+                    
+                    # Save state and stop periodic updates
+                    save_memory()
+                    periodic_update.stop()
+                    
+                    # Restart the bot
+                    script_path = os.path.abspath(sys.argv[0])
+                    subprocess.Popen([sys.executable, script_path])
+                    try:
+                        await bot.close()
+                    except:
+                        pass
+                else:
+                    error_msg = error.decode('utf-8') if error else 'Unknown error'
+                    await ctx.send(f"Failed to update: {error_msg}")
+                    logging.error(f"Git reset failed: {error_msg}")
             else:
                 error_msg = error.decode('utf-8') if error else 'Unknown error'
                 await ctx.send(f"Failed to update: {error_msg}")
-                logging.error(f"Git pull failed: {error_msg}")
+                logging.error(f"Git fetch failed: {error_msg}")
                 
         except Exception as e:
             await ctx.send(f"An error occurred during update: {str(e)}")
