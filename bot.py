@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 import json
 import logging
 import pytz  # Add pytz for timezone handling
+import shutil
+from commands.leaderboard import setup_leaderboard
+from commands.restart import setup_restart
+from commands.update import setup_update
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -69,9 +73,26 @@ def should_reset():
         return True
     return False
 
+def backup_memory():
+    """Create a backup of memory.json with date in filename"""
+    # Create backup directory if it doesn't exist
+    backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backup')
+    os.makedirs(backup_dir, exist_ok=True)
+    
+    # Generate backup filename with current date
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    backup_filename = f'memory-{current_date}.json'
+    backup_path = os.path.join(backup_dir, backup_filename)
+    
+    # Copy the file
+    shutil.copy2('memory.json', backup_path)
+    logging.info(f"Created backup: {backup_filename}")
+
 def reset_counters():
     """Reset all users' total_time to 0"""
     logging.info("Resetting daily voice time counters...")
+    # Create backup before reset
+    backup_memory()
     for user_id in voice_time_tracking:
         voice_time_tracking[user_id]['total_time'] = 0
     save_memory()
@@ -118,6 +139,11 @@ async def on_ready():
     save_memory()
     periodic_update.start()  # Start the periodic update task
 
+# Setup commands
+setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_times)
+setup_restart(bot, save_memory, periodic_update)
+setup_update(bot, save_memory, periodic_update)
+
 @bot.event
 async def on_voice_state_update(member, before, after):
     """Track time spent in voice channels."""
@@ -151,58 +177,6 @@ async def on_voice_state_update(member, before, after):
         voice_time_tracking[member_id]['join_time'] = current_time
         voice_time_tracking[member_id]['in_voice'] = True
         save_memory()
-
-@bot.command(name='leaderboard')
-async def leaderboard(ctx):
-    """Display the voice chat time leaderboard."""
-    current_time = datetime.now().timestamp()
-    
-    # Update times for all active users before displaying
-    update_voice_times()
-    
-    # Filter out ignored users and sort by total time (highest to lowest)
-    sorted_users = sorted(
-        [(user_id, time_data) for user_id, time_data in voice_time_tracking.items() 
-         if int(user_id) not in IGNORED_USER_IDS],
-        key=lambda x: x[1]['total_time'],
-        reverse=True
-    )
-    
-    # Create leaderboard message
-    leaderboard_text = "Voice Chat Time Leaderboard\n-------------------------\n"
-    for rank, (user_id, time_data) in enumerate(sorted_users, 1):
-        # Calculate total time including current session if user is in voice
-        total_seconds = time_data['total_time']
-        if time_data.get('in_voice', False) and 'join_time' in time_data:
-            current_session = current_time - time_data['join_time']
-            total_seconds += current_session
-        
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        status = "🔊" if time_data.get('in_voice', False) else "💤"
-        user = time_data['username']
-        
-        leaderboard_text += f"{status} {user}: {hours} hours and {minutes} minutes\n"
-    
-    await ctx.send(f"```\n{leaderboard_text}\n```")
-    await ctx.send(file=discord.File('memory.json'))
-
-@bot.command(name='restart')
-async def restart(ctx):
-    """Restart the bot. Only allowed for specific administrator."""
-    if ctx.author.id != 220301180562046977:  # Check for specific admin ID
-        await ctx.send("You don't have permission to use this command.")
-        return
-        
-    await ctx.send("Restarting bot...")
-    logging.info("Restart command received. Restarting bot...")
-    save_memory()
-    periodic_update.stop()
-    
-    script_path = os.path.abspath(sys.argv[0])
-    subprocess.Popen([sys.executable, script_path])
-    await bot.close()
-    sys.exit()
 
 async def check_and_respond(user_id, channel):
     """Common function to check user status and respond if needed."""

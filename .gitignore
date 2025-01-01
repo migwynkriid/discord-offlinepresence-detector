@@ -1,3 +1,5 @@
 .env
 memory.json
 log.txt
+commands/__pycache__
+backup/
