@@ -79,9 +79,9 @@ def backup_memory():
     backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backup')
     os.makedirs(backup_dir, exist_ok=True)
     
-    # Generate backup filename with current date
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    backup_filename = f'memory-{current_date}.json'
+    # Generate backup filename with current date and time
+    current_datetime = datetime.now().strftime('%Y-%m-%d-%H%M')
+    backup_filename = f'memory-{current_datetime}.json'
     backup_path = os.path.join(backup_dir, backup_filename)
     
     # Copy the file
@@ -97,11 +97,14 @@ def reset_counters():
         voice_time_tracking[user_id]['total_time'] = 0
     save_memory()
 
-@tasks.loop(minutes=10)
+@tasks.loop(minutes=1440)
 async def periodic_update():
-    """Task that runs every 10 minutes to update voice times and check for daily reset."""
+    """Task that runs every minute to update voice times, create backup, and check for daily reset."""
     logging.info("Updating voice chat times...")
     update_voice_times()
+    
+    # Create backup
+    backup_memory()
     
     if should_reset():
         reset_counters()
