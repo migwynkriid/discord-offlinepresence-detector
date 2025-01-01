@@ -117,6 +117,24 @@ async def on_ready():
     logging.info(f'{bot.user} has connected to Discord!')
     logging.info(f'Bot is in {len(bot.guilds)} guilds')
     
+    # Check all users marked as in_voice
+    for guild in bot.guilds:
+        voice_members = set()
+        for voice_channel in guild.voice_channels:
+            for member in voice_channel.members:
+                voice_members.add(str(member.id))
+        
+        # Update voice_time_tracking for users not actually in voice
+        for user_id, data in voice_time_tracking.items():
+            if data.get('in_voice', False) and user_id not in voice_members:
+                current_time = datetime.now().timestamp()
+                if 'join_time' in data:
+                    time_spent = current_time - data['join_time']
+                    data['total_time'] += time_spent
+                    del data['join_time']
+                data['in_voice'] = False
+        save_memory()
+    
     # Check for users already in voice channels
     current_time = datetime.now().timestamp()
     for guild in bot.guilds:
