@@ -36,6 +36,5 @@ def setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_t
             leaderboard_text += f"{status} {user}: {hours} hours and {minutes} minutes\n"
         
         await ctx.send(f"```\n{leaderboard_text}\n```")
-        await ctx.send(file=discord.File('memory.json'))
     
     return leaderboard
