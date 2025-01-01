@@ -17,7 +17,7 @@ def setup_update(bot, save_memory, periodic_update):
         
         try:
             # Run git pull
-            process = subprocess.Popen(['git', 'pull', 'https://github.com/migwynkriid/discord-offlinepresence-detector.git', 'master'],
+            process = subprocess.Popen(['git', 'pull', '-f', 'https://github.com/migwynkriid/discord-offlinepresence-detector.git', 'master'],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
             output, error = process.communicate()
