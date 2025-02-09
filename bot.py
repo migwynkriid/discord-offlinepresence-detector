@@ -35,7 +35,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 last_message_time = {}
 
 # List of user IDs to ignore in voice tracking
-IGNORED_USER_IDS = [506216844856786974, 506924316403957760]
+IGNORED_USER_IDS = [506216844856786974, 506924316403957760, 1018901285988208660, 810540985032900648, 1332495447612457022]
 
 # Load voice tracking data from memory.json if it exists
 try:
