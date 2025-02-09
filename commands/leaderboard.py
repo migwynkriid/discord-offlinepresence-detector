@@ -19,8 +19,13 @@ def setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_t
             reverse=True
         )
         
-        # Create leaderboard message
-        leaderboard_text = "Voice Chat Time Leaderboard\n-------------------------\n"
+        # Create embed
+        embed = discord.Embed(
+            title="Voice Chat Time Leaderboard",
+            color=discord.Color.blue()
+        )
+        
+        # Add user entries to embed
         for rank, (user_id, time_data) in enumerate(sorted_users, 1):
             # Calculate total time including current session if user is in voice
             total_seconds = time_data['total_time']
@@ -33,8 +38,22 @@ def setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_t
             status = "🔊" if time_data.get('in_voice', False) else "💤"
             user = time_data['username']
             
-            leaderboard_text += f"{status} {user}: {hours} hours and {minutes} minutes\n"
+            # Try to get the member object to get their avatar
+            member = ctx.guild.get_member(int(user_id))
+            avatar_url = member.display_avatar.url if member else None
+            
+            # Add field for each user
+            time_text = f"{hours} hours and {minutes} minutes"
+            embed.add_field(
+                name=f"{status} {user}",
+                value=time_text,
+                inline=False
+            )
+            
+            # Set the user's avatar as thumbnail for first place
+            if rank == 1 and avatar_url:
+                embed.set_thumbnail(url=avatar_url)
         
-        await ctx.send(f"```\n{leaderboard_text}\n```")
+        await ctx.send(embed=embed)
     
     return leaderboard
