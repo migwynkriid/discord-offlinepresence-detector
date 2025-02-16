@@ -49,10 +49,12 @@ def setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_t
                 value=time_text,
                 inline=False
             )
-            
-            # Set the user's avatar as thumbnail for first place
-            if rank == 1 and avatar_url:
-                embed.set_thumbnail(url=avatar_url)
+        
+        # Set the footer with requester's information and icon
+        embed.set_footer(
+            text=f"Requested by {ctx.author.display_name}",
+            icon_url=ctx.author.display_avatar.url
+        )
         
         await ctx.send(embed=embed)
     
