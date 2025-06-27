@@ -202,7 +202,7 @@ async def on_voice_state_update(member, before, after):
 async def check_and_respond(user_id, channel):
     """Common function to check user status and respond if needed."""
     member = channel.guild.get_member(user_id)
-    if member and member.id in [226711001469288448]:
+    if member and member.id in [226711001469288448, 97407220936884224]:
         current_time = datetime.now()
         last_time = last_message_time.get(member.id)
         
@@ -234,13 +234,15 @@ async def on_reaction_remove(reaction, user):
 async def on_raw_reaction_add(payload):
     if payload.user_id != bot.user.id:
         channel = bot.get_channel(payload.channel_id)
-        await check_and_respond(payload.user_id, channel)
+        if channel:
+            await check_and_respond(payload.user_id, channel)
 
 @bot.event
 async def on_raw_reaction_remove(payload):
     if payload.user_id != bot.user.id:
         channel = bot.get_channel(payload.channel_id)
-        await check_and_respond(payload.user_id, channel)
+        if channel:
+            await check_and_respond(payload.user_id, channel)
 
 # Get the token from environment variables
 TOKEN = os.getenv('DISCORD_TOKEN')
