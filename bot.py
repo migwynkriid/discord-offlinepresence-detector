@@ -14,6 +14,7 @@ from commands.restart import setup_restart
 from commands.update import setup_update
 from commands.watchlist import setup_watchlist
 from commands.ignore import setup_ignore
+from commands.listid import setup_listid
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -211,6 +212,7 @@ setup_restart(bot, save_memory, periodic_update)
 setup_update(bot, save_memory, periodic_update)
 setup_watchlist(bot)
 setup_ignore(bot)
+setup_listid(bot)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
