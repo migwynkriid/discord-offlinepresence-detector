@@ -34,8 +34,19 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Dictionary to store the last message time for each user
 last_message_time = {}
 
+# Load ignored user IDs from ignore.json
+def load_ignored_users():
+    """Load ignored user IDs from ignore.json file"""
+    try:
+        with open('ignore.json', 'r') as f:
+            data = json.load(f)
+            return data.get('ignored_user_ids', [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.warning("ignore.json not found or invalid, using empty ignore list")
+        return []
+
 # List of user IDs to ignore in voice tracking
-IGNORED_USER_IDS = [506216844856786974, 506924316403957760, 1018901285988208660, 810540985032900648, 1332495447612457022, 184405311681986560]
+IGNORED_USER_IDS = load_ignored_users()
 
 # Load voice tracking data from memory.json if it exists
 try:
@@ -232,14 +243,14 @@ async def on_reaction_remove(reaction, user):
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    if payload.user_id != bot.user.id:
+    if bot.user and payload.user_id != bot.user.id:
         channel = bot.get_channel(payload.channel_id)
         if channel:
             await check_and_respond(payload.user_id, channel)
 
 @bot.event
 async def on_raw_reaction_remove(payload):
-    if payload.user_id != bot.user.id:
+    if bot.user and payload.user_id != bot.user.id:
         channel = bot.get_channel(payload.channel_id)
         if channel:
             await check_and_respond(payload.user_id, channel)
