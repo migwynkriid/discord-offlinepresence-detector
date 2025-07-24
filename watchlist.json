@@ -1,5 +1,5 @@
 {
-  "watch_everyone": true,
+  "watch_everyone": false,
   "watched_user_ids": [
     226711001469288448,
     97407220936884224

@@ -3,3 +3,6 @@ memory.json
 log.txt
 commands/__pycache__
 backup/
+__pycache__
+./.vercel
+.vercel
