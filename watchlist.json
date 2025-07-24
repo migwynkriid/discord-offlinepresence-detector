@@ -1,0 +1,8 @@
+{
+  "watch_everyone": true,
+  "watched_user_ids": [
+    226711001469288448,
+    97407220936884224
+  ],
+  "offline_message": "<@{user_id}> ka dialas offline budala"
+}

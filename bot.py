@@ -45,8 +45,30 @@ def load_ignored_users():
         logging.warning("ignore.json not found or invalid, using empty ignore list")
         return []
 
+# Load watchlist configuration from watchlist.json
+def load_watchlist_config():
+    """Load watchlist configuration from watchlist.json file"""
+    try:
+        with open('watchlist.json', 'r') as f:
+            data = json.load(f)
+            return {
+                'watch_everyone': data.get('watch_everyone', False),
+                'watched_user_ids': data.get('watched_user_ids', []),
+                'offline_message': data.get('offline_message', '<@{user_id}> is now offline')
+            }
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.warning("watchlist.json not found or invalid, using default config")
+        return {
+            'watch_everyone': False, 
+            'watched_user_ids': [],
+            'offline_message': '<@{user_id}> is now offline'
+        }
+
 # List of user IDs to ignore in voice tracking
 IGNORED_USER_IDS = load_ignored_users()
+
+# Watchlist configuration
+WATCHLIST_CONFIG = load_watchlist_config()
 
 # Load voice tracking data from memory.json if it exists
 try:
@@ -213,13 +235,22 @@ async def on_voice_state_update(member, before, after):
 async def check_and_respond(user_id, channel):
     """Common function to check user status and respond if needed."""
     member = channel.guild.get_member(user_id)
-    if member and member.id in [226711001469288448, 97407220936884224]:
+    
+    # Check if we should watch this user based on watchlist configuration
+    should_watch = False
+    if WATCHLIST_CONFIG['watch_everyone']:
+        should_watch = True
+    elif member and member.id in WATCHLIST_CONFIG['watched_user_ids']:
+        should_watch = True
+    
+    if member and should_watch:
         current_time = datetime.now()
         last_time = last_message_time.get(member.id)
         
         if last_time is None or (current_time - last_time) > timedelta(days=1):
             if member.status in [discord.Status.offline, discord.Status.invisible]:
-                await channel.send(f"<@{member.id}> ka dialas offline budala")
+                message = WATCHLIST_CONFIG['offline_message'].format(user_id=member.id)
+                await channel.send(message)
                 last_message_time[member.id] = current_time
 
 @bot.event
