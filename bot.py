@@ -13,6 +13,7 @@ from commands.leaderboard import setup_leaderboard
 from commands.restart import setup_restart
 from commands.update import setup_update
 from commands.watchlist import setup_watchlist
+from commands.ignore import setup_ignore
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -72,9 +73,14 @@ IGNORED_USER_IDS = load_ignored_users()
 WATCHLIST_CONFIG = load_watchlist_config()
 
 def reload_watchlist_config():
-    """Reload watchlist configuration from file"""
+    """Reload the watchlist configuration from file."""
     global WATCHLIST_CONFIG
     WATCHLIST_CONFIG = load_watchlist_config()
+
+def reload_ignored_users():
+    """Reload the ignored users list from file."""
+    global IGNORED_USER_IDS
+    IGNORED_USER_IDS = load_ignored_users()
 
 # Load voice tracking data from memory.json if it exists
 try:
@@ -204,6 +210,7 @@ setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_times
 setup_restart(bot, save_memory, periodic_update)
 setup_update(bot, save_memory, periodic_update)
 setup_watchlist(bot)
+setup_ignore(bot)
 
 @bot.event
 async def on_voice_state_update(member, before, after):

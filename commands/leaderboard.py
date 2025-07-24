@@ -6,6 +6,9 @@ def setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_t
     @bot.command(name='leaderboard')
     async def leaderboard(ctx):
         """Display the voice chat time leaderboard."""
+        # Import current ignored users list
+        from bot import IGNORED_USER_IDS as current_ignored_users
+        
         current_time = datetime.now().timestamp()
         
         # Update times for all active users before displaying
@@ -14,7 +17,7 @@ def setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_t
         # Filter out ignored users and sort by total time (highest to lowest)
         sorted_users = sorted(
             [(user_id, time_data) for user_id, time_data in voice_time_tracking.items() 
-             if int(user_id) not in IGNORED_USER_IDS],
+             if int(user_id) not in current_ignored_users],
             key=lambda x: x[1]['total_time'],
             reverse=True
         )
