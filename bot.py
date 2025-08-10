@@ -1,5 +1,7 @@
 import os
 import sys
+import signal
+import asyncio
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
@@ -327,10 +329,80 @@ async def on_raw_reaction_remove(payload):
         if channel:
             await check_and_respond(payload.user_id, channel)
 
-# Get the token from environment variables
-TOKEN = os.getenv('DISCORD_TOKEN')
-if not TOKEN:
-    raise ValueError("No Discord token found. Make sure to set DISCORD_TOKEN in your .env file")
+# Global flag to control shutdown
+shutdown_requested = False
 
-# Run the bot
-bot.run(TOKEN)
+async def graceful_shutdown():
+    """Perform graceful shutdown of the bot."""
+    global shutdown_requested
+    shutdown_requested = True
+    
+    logging.info("Graceful shutdown initiated...")
+    
+    # Save current state
+    save_memory()
+    
+    # Stop periodic tasks
+    if periodic_update.is_running():
+        periodic_update.stop()
+        logging.info("Stopped periodic update task")
+    
+    # Close the bot connection
+    if not bot.is_closed():
+        await bot.close()
+        logging.info("Bot connection closed")
+    
+    logging.info("Graceful shutdown completed")
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals."""
+    logging.info(f"Received signal {signum}, initiating shutdown...")
+    # Create a new event loop if one doesn't exist
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    # Schedule graceful shutdown
+    if loop.is_running():
+        loop.create_task(graceful_shutdown())
+    else:
+        loop.run_until_complete(graceful_shutdown())
+    
+    # Force exit
+    sys.exit(0)
+
+async def main():
+    """Main function to run the bot with proper shutdown handling."""
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
+    signal.signal(signal.SIGTERM, signal_handler)  # Termination signal
+    
+    # Get the token from environment variables
+    TOKEN = os.getenv('DISCORD_TOKEN')
+    if not TOKEN:
+        raise ValueError("No Discord token found. Make sure to set DISCORD_TOKEN in your .env file")
+    
+    try:
+        logging.info("Starting bot...")
+        await bot.start(TOKEN)
+    except KeyboardInterrupt:
+        logging.info("KeyboardInterrupt received, shutting down...")
+        await graceful_shutdown()
+    except Exception as e:
+        logging.error(f"Bot encountered an error: {e}")
+        await graceful_shutdown()
+        raise
+    finally:
+        if not bot.is_closed():
+            await bot.close()
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info("Bot shutdown completed")
+    except Exception as e:
+        logging.error(f"Fatal error: {e}")
+        sys.exit(1)
