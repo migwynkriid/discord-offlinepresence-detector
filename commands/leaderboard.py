@@ -2,12 +2,12 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 
-def setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_times):
+def setup_leaderboard(bot, voice_time_tracking, get_ignored_users_func, update_voice_times):
     @bot.command(name='leaderboard')
     async def leaderboard(ctx):
         """Display the voice chat time leaderboard."""
-        # Import current ignored users list
-        from bot import IGNORED_USER_IDS as current_ignored_users
+        # Get current ignored users list
+        current_ignored_users = get_ignored_users_func()
         
         current_time = datetime.now().timestamp()
         

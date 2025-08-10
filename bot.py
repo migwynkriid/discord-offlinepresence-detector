@@ -86,6 +86,10 @@ def reload_ignored_users():
     global IGNORED_USER_IDS
     IGNORED_USER_IDS = load_ignored_users()
 
+def get_ignored_users():
+    """Get the current ignored users list."""
+    return IGNORED_USER_IDS
+
 # Load voice tracking data from memory.json if it exists
 try:
     with open('memory.json', 'r') as f:
@@ -183,6 +187,11 @@ async def on_ready():
     logging.info(f'{bot.user} has connected to Discord!')
     logging.info(f'Bot is in {len(bot.guilds)} guilds')
     
+    # Reload ignored users and watchlist config to ensure they're up to date
+    reload_ignored_users()
+    reload_watchlist_config()
+    logging.info(f'Loaded {len(IGNORED_USER_IDS)} ignored users from ignore.json')
+    
     # Check all users marked as in_voice
     for guild in bot.guilds:
         voice_members = set()
@@ -209,7 +218,7 @@ async def on_ready():
             if len(voice_channel.members) >= 2:
                 for member in voice_channel.members:
                     # Skip ignored users
-                    if member.id in IGNORED_USER_IDS:
+                    if member.id in get_ignored_users():
                         continue
                         
                     member_id = str(member.id)
@@ -229,11 +238,11 @@ async def on_ready():
     periodic_update.start()  # Start the periodic update task
 
 # Setup commands
-setup_leaderboard(bot, voice_time_tracking, IGNORED_USER_IDS, update_voice_times)
+setup_leaderboard(bot, voice_time_tracking, get_ignored_users, update_voice_times)
 setup_restart(bot, save_memory, periodic_update)
 setup_update(bot, save_memory, periodic_update)
 setup_watchlist(bot)
-setup_ignore(bot)
+setup_ignore(bot, reload_ignored_users)
 setup_listid(bot)
 setup_backup(bot)
 
@@ -241,7 +250,7 @@ setup_backup(bot)
 async def on_voice_state_update(member, before, after):
     """Track time spent in voice channels."""
     # Ignore specified users
-    if member.id in IGNORED_USER_IDS:
+    if member.id in get_ignored_users():
         return
         
     current_time = datetime.now().timestamp()

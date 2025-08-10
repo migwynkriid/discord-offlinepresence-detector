@@ -3,9 +3,8 @@ from discord.ext import commands
 import json
 import logging
 
-def setup_ignore(bot):
-    # Import the reload function from bot module
-    from bot import reload_ignored_users
+def setup_ignore(bot, reload_ignored_users_func):
+    # Use the reload function passed as parameter to avoid circular imports
     
     @bot.group(name='ignore', invoke_without_command=True)
     async def ignore(ctx):
@@ -42,7 +41,7 @@ def setup_ignore(bot):
             logging.info(f"Added user {user_id} to ignore list by {ctx.author}")
             
             # Reload the ignore configuration
-            reload_ignored_users()
+            reload_ignored_users_func()
             
         except FileNotFoundError:
             await ctx.send("❌ Ignore file not found. Please contact an administrator.")
@@ -80,7 +79,7 @@ def setup_ignore(bot):
             logging.info(f"Removed user {user_id} from ignore list by {ctx.author}")
             
             # Reload the ignore configuration
-            reload_ignored_users()
+            reload_ignored_users_func()
             
         except FileNotFoundError:
             await ctx.send("❌ Ignore file not found. Please contact an administrator.")
