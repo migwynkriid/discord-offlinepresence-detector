@@ -100,11 +100,28 @@ def update_voice_times():
     """Update voice times for users currently in voice channels."""
     current_time = datetime.now().timestamp()
     
+    # Get all voice channels and their member counts
+    voice_channel_members = {}
+    for guild in bot.guilds:
+        for voice_channel in guild.voice_channels:
+            voice_channel_members[voice_channel.id] = len(voice_channel.members)
+    
     # Update time for users currently in voice channels
     for user_id, time_data in voice_time_tracking.items():
         if time_data.get('in_voice', False) and 'join_time' in time_data:
-            time_spent = current_time - time_data['join_time']
-            time_data['total_time'] += time_spent
+            # Find which voice channel this user is in
+            user_voice_channel = None
+            for guild in bot.guilds:
+                member = guild.get_member(int(user_id))
+                if member and member.voice and member.voice.channel:
+                    user_voice_channel = member.voice.channel
+                    break
+            
+            # Only count time if there are 2 or more users in the voice channel
+            if user_voice_channel and voice_channel_members.get(user_voice_channel.id, 0) >= 2:
+                time_spent = current_time - time_data['join_time']
+                time_data['total_time'] += time_spent
+            
             time_data['join_time'] = current_time  # Reset join time to current time
     
     save_memory()
@@ -186,23 +203,25 @@ async def on_ready():
     current_time = datetime.now().timestamp()
     for guild in bot.guilds:
         for voice_channel in guild.voice_channels:
-            for member in voice_channel.members:
-                # Skip ignored users
-                if member.id in IGNORED_USER_IDS:
-                    continue
+            # Only track users in channels with 2 or more members
+            if len(voice_channel.members) >= 2:
+                for member in voice_channel.members:
+                    # Skip ignored users
+                    if member.id in IGNORED_USER_IDS:
+                        continue
+                        
+                    member_id = str(member.id)
+                    if member_id not in voice_time_tracking:
+                        voice_time_tracking[member_id] = {
+                            'username': member.name,
+                            'total_time': 0,
+                            'in_voice': False
+                        }
                     
-                member_id = str(member.id)
-                if member_id not in voice_time_tracking:
-                    voice_time_tracking[member_id] = {
-                        'username': member.name,
-                        'total_time': 0,
-                        'in_voice': False
-                    }
-                
-                # Update status and join time for users already in voice
-                voice_time_tracking[member_id]['in_voice'] = True
-                voice_time_tracking[member_id]['join_time'] = current_time
-                logging.info(f"Found user {member.name} in channel {voice_channel.name}")
+                    # Update status and join time for users already in voice
+                    voice_time_tracking[member_id]['in_voice'] = True
+                    voice_time_tracking[member_id]['join_time'] = current_time
+                    logging.info(f"Found user {member.name} in channel {voice_channel.name} with {len(voice_channel.members)} members")
     
     save_memory()
     periodic_update.start()  # Start the periodic update task
@@ -238,8 +257,12 @@ async def on_voice_state_update(member, before, after):
     if before and before.channel:
         if voice_time_tracking[member_id].get('in_voice', False):
             if 'join_time' in voice_time_tracking[member_id]:
-                time_spent = current_time - voice_time_tracking[member_id]['join_time']
-                voice_time_tracking[member_id]['total_time'] += time_spent
+                # Only count time if there were 2 or more users in the voice channel
+                # Check current member count (including the user who is leaving)
+                current_member_count = len(before.channel.members)
+                if current_member_count >= 2:
+                    time_spent = current_time - voice_time_tracking[member_id]['join_time']
+                    voice_time_tracking[member_id]['total_time'] += time_spent
                 del voice_time_tracking[member_id]['join_time']
             voice_time_tracking[member_id]['in_voice'] = False
             save_memory()
