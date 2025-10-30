@@ -103,10 +103,11 @@ def save_memory():
         json.dump(voice_time_tracking, f, indent=4)
 
 def update_voice_times():
-    """Update voice times for users currently in voice channels."""
+    """Update voice times for users currently being tracked in voice channels (only those with multiple people)."""
     current_time = datetime.now().timestamp()
     
-    # Update time for users currently in voice channels
+    # Update time for users currently being tracked in voice channels
+    # Only users with 'join_time' are being actively tracked (not alone)
     for user_id, time_data in voice_time_tracking.items():
         if time_data.get('in_voice', False) and 'join_time' in time_data:
             time_spent = current_time - time_data['join_time']
@@ -229,7 +230,7 @@ setup_backup(bot)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    """Track time spent in voice channels."""
+    """Track time spent in voice channels, but only when there are multiple people in the channel."""
     # Ignore specified users
     if member.id in get_ignored_users():
         return
@@ -249,17 +250,76 @@ async def on_voice_state_update(member, before, after):
     if before and before.channel:
         if voice_time_tracking[member_id].get('in_voice', False):
             if 'join_time' in voice_time_tracking[member_id]:
-                time_spent = current_time - voice_time_tracking[member_id]['join_time']
-                voice_time_tracking[member_id]['total_time'] += time_spent
+                # Only count time if there were multiple people in the channel
+                # Check if there are still other members in the channel after this user left
+                remaining_members = [m for m in before.channel.members if not m.bot and m.id != member.id]
+                if len(remaining_members) >= 1:  # There were at least 2 people (including the leaving member)
+                    time_spent = current_time - voice_time_tracking[member_id]['join_time']
+                    voice_time_tracking[member_id]['total_time'] += time_spent
                 del voice_time_tracking[member_id]['join_time']
             voice_time_tracking[member_id]['in_voice'] = False
             save_memory()
     
     # Handle joining voice channel
     if after and after.channel:
-        voice_time_tracking[member_id]['join_time'] = current_time
-        voice_time_tracking[member_id]['in_voice'] = True
+        # Count non-bot members in the channel (including the joining member)
+        non_bot_members = [m for m in after.channel.members if not m.bot]
+        
+        # Only start tracking if there are multiple people in the channel
+        if len(non_bot_members) >= 2:
+            voice_time_tracking[member_id]['join_time'] = current_time
+            voice_time_tracking[member_id]['in_voice'] = True
+        else:
+            # If alone, mark as in voice but don't set join_time (no tracking)
+            voice_time_tracking[member_id]['in_voice'] = True
+            # Remove join_time if it exists to prevent tracking
+            if 'join_time' in voice_time_tracking[member_id]:
+                del voice_time_tracking[member_id]['join_time']
         save_memory()
+    
+    # Handle case where someone joins/leaves and affects tracking for others
+    # Check all users currently in voice channels to start/stop tracking based on member count
+    await update_tracking_for_channel_changes()
+
+async def update_tracking_for_channel_changes():
+    """Update tracking status for all users based on current voice channel member counts."""
+    current_time = datetime.now().timestamp()
+    
+    # Get all guilds the bot is in
+    for guild in bot.guilds:
+        # Check all voice channels in the guild
+        for channel in guild.voice_channels:
+            non_bot_members = [m for m in channel.members if not m.bot]
+            
+            # For each member in the channel
+            for member in non_bot_members:
+                if member.id in get_ignored_users():
+                    continue
+                    
+                member_id = str(member.id)
+                
+                # Initialize user data if not exists
+                if member_id not in voice_time_tracking:
+                    voice_time_tracking[member_id] = {
+                        'username': member.name,
+                        'total_time': 0,
+                        'in_voice': False
+                    }
+                
+                # If there are multiple people, ensure tracking is active
+                if len(non_bot_members) >= 2:
+                    if voice_time_tracking[member_id].get('in_voice', False) and 'join_time' not in voice_time_tracking[member_id]:
+                        # User was in voice but not being tracked, start tracking now
+                        voice_time_tracking[member_id]['join_time'] = current_time
+                # If user is alone, stop tracking but keep them marked as in voice
+                else:
+                    if voice_time_tracking[member_id].get('in_voice', False) and 'join_time' in voice_time_tracking[member_id]:
+                        # User was being tracked but is now alone, stop tracking
+                        time_spent = current_time - voice_time_tracking[member_id]['join_time']
+                        voice_time_tracking[member_id]['total_time'] += time_spent
+                        del voice_time_tracking[member_id]['join_time']
+    
+    save_memory()
 
 async def check_and_respond(user_id, channel):
     """Common function to check user status and respond if needed."""

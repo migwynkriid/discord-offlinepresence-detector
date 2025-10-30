@@ -35,7 +35,14 @@ def setup_leaderboard(bot, voice_time_tracking, get_ignored_users_func, update_v
             
             hours = int(total_seconds // 3600)
             minutes = int((total_seconds % 3600) // 60)
-            status = "🔊" if time_data.get('in_voice', False) else "💤"
+            # Show different status based on tracking state
+            if time_data.get('in_voice', False):
+                if 'join_time' in time_data:
+                    status = "🔊"  # In voice and being tracked (with others)
+                else:
+                    status = "🔇"  # In voice but not tracked (alone)
+            else:
+                status = "💤"  # Not in voice
             user = time_data['username']
             
             # Add user line to leaderboard
