@@ -147,20 +147,93 @@ def should_reset():
         return True
     return False
 
+def organize_backup_files():
+    """Organize backup files into year/month/day subdirectories"""
+    backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backup')
+    
+    if not os.path.exists(backup_dir):
+        return
+    
+    # Get all .json files in the backup directory (not in subdirectories)
+    json_files = []
+    for file in os.listdir(backup_dir):
+        file_path = os.path.join(backup_dir, file)
+        if os.path.isfile(file_path) and file.endswith('.json') and file.startswith('memory-'):
+            json_files.append(file)
+    
+    organized_count = 0
+    
+    for filename in json_files:
+        # Parse filename: memory-YEAR-MONTH-DAY-COUNT.json
+        try:
+            # Remove 'memory-' prefix and '.json' suffix
+            date_part = filename[7:-5]  # Remove 'memory-' and '.json'
+            
+            # Split by '-' to get year, month, day, count
+            parts = date_part.split('-')
+            if len(parts) >= 4:
+                year = parts[0]
+                month = parts[1]
+                day = parts[2]
+                
+                # Create year directory
+                year_dir = os.path.join(backup_dir, year)
+                os.makedirs(year_dir, exist_ok=True)
+                
+                # Create month directory
+                month_dir = os.path.join(year_dir, month)
+                os.makedirs(month_dir, exist_ok=True)
+                
+                # Create day directory
+                day_dir = os.path.join(month_dir, day)
+                os.makedirs(day_dir, exist_ok=True)
+                
+                # Move file to day directory
+                old_path = os.path.join(backup_dir, filename)
+                new_path = os.path.join(day_dir, filename)
+                
+                if not os.path.exists(new_path):
+                    shutil.move(old_path, new_path)
+                    organized_count += 1
+                    logging.info(f"Organized backup file: {filename} -> {year}/{month}/{day}/")
+                
+        except (ValueError, IndexError) as e:
+            logging.warning(f"Could not parse backup filename: {filename} - {e}")
+            continue
+    
+    if organized_count > 0:
+        logging.info(f"Organized {organized_count} backup files into subdirectories")
+
 def backup_memory():
-    """Create a backup of memory.json with date in filename"""
+    """Create a backup of memory.json with date in filename in organized directory structure"""
     # Create backup directory if it doesn't exist
     backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backup')
     os.makedirs(backup_dir, exist_ok=True)
     
     # Generate backup filename with current date and time
-    current_datetime = datetime.now().strftime('%Y-%m-%d-%H%M')
-    backup_filename = f'memory-{current_datetime}.json'
-    backup_path = os.path.join(backup_dir, backup_filename)
+    current_datetime = datetime.now()
+    year = current_datetime.strftime('%Y')
+    month = current_datetime.strftime('%m')
+    day = current_datetime.strftime('%d')
+    time_str = current_datetime.strftime('%H%M')
+    
+    # Create organized directory structure
+    year_dir = os.path.join(backup_dir, year)
+    os.makedirs(year_dir, exist_ok=True)
+    
+    month_dir = os.path.join(year_dir, month)
+    os.makedirs(month_dir, exist_ok=True)
+    
+    day_dir = os.path.join(month_dir, day)
+    os.makedirs(day_dir, exist_ok=True)
+    
+    # Generate backup filename and path in organized structure
+    backup_filename = f'memory-{year}-{month}-{day}-{time_str}.json'
+    backup_path = os.path.join(day_dir, backup_filename)
     
     # Copy the file
     shutil.copy2('memory.json', backup_path)
-    logging.info(f"Created backup: {backup_filename}")
+    logging.info(f"Created backup: {backup_filename} in {year}/{month}/{day}/")
 
 def reset_counters():
     """Reset all users' total_time to 0"""
@@ -171,9 +244,9 @@ def reset_counters():
         voice_time_tracking[user_id]['total_time'] = 0
     save_memory()
 
-@tasks.loop(minutes=1440)
+@tasks.loop(minutes=120)
 async def periodic_update():
-    """Task that runs every minute to update voice times, create backup, and check for daily reset."""
+    """Task that runs every 2 hours to update voice times, create backup, and check for daily reset."""
     logging.info("Updating voice chat times...")
     update_voice_times()
     
@@ -190,6 +263,9 @@ async def on_ready():
     """Event handler for when the bot is ready and connected to Discord."""
     logging.info(f'{bot.user} has connected to Discord!')
     logging.info(f'Bot is in {len(bot.guilds)} guilds')
+    
+    # Organize backup files into subdirectories
+    organize_backup_files()
     
     # Reload ignored users and watchlist config to ensure they're up to date
     reload_ignored_users()
