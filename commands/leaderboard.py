@@ -9,6 +9,10 @@ def setup_leaderboard(bot, voice_time_tracking, get_ignored_users_func, update_v
         # Get current ignored users list
         current_ignored_users = get_ignored_users_func()
         
+        import logging
+        logging.info(f"Leaderboard: Ignored users list: {current_ignored_users}")
+        logging.info(f"Leaderboard: Total users in tracking: {len(voice_time_tracking)}")
+        
         current_time = datetime.now().timestamp()
         
         # Update times for all active users before displaying
@@ -21,6 +25,12 @@ def setup_leaderboard(bot, voice_time_tracking, get_ignored_users_func, update_v
             key=lambda x: x[1]['total_time'],
             reverse=True
         )
+        
+        filtered_count = len(voice_time_tracking) - len(sorted_users)
+        logging.info(f"Leaderboard: Filtered out {filtered_count} users, showing {len(sorted_users)} users")
+        
+        # Log which users are being shown
+        logging.info(f"Leaderboard users: {[(uid, data.get('username')) for uid, data in sorted_users[:10]]}")
         
         # Create simple text leaderboard
         leaderboard_text = "**Voice Chat Time Leaderboard**\n\n"

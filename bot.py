@@ -98,18 +98,23 @@ def reload_watchlist_config():
 
 def reload_ignored_users():
     """Reload the ignored users list from file."""
-    global IGNORED_USER_IDS
+    global IGNORED_USER_IDS, voice_time_tracking
     IGNORED_USER_IDS = load_ignored_users()
+    logging.info(f"Reloaded ignore list: {IGNORED_USER_IDS}")
     
     # Remove ignored users from voice_time_tracking
     users_to_remove = [user_id for user_id in voice_time_tracking.keys() 
                        if int(user_id) in IGNORED_USER_IDS]
+    
+    logging.info(f"Found {len(users_to_remove)} ignored users to remove from tracking")
     for user_id in users_to_remove:
+        username = voice_time_tracking[user_id].get('username', 'Unknown')
         del voice_time_tracking[user_id]
-        logging.info(f"Removed ignored user {user_id} from voice tracking")
+        logging.info(f"Removed ignored user {user_id} ({username}) from voice tracking")
     
     if users_to_remove:
         save_memory()
+        logging.info("Saved memory after removing ignored users")
 
 def reload_afk_channels():
     """Reload the AFK channels list from file."""
@@ -125,17 +130,24 @@ try:
     with open('memory.json', 'r') as f:
         voice_time_tracking = json.load(f)
     
+    logging.info(f"Loaded {len(voice_time_tracking)} users from memory.json")
+    logging.info(f"Ignored users list: {IGNORED_USER_IDS}")
+    
     # Clean up any ignored users from loaded data
     users_to_remove = [user_id for user_id in voice_time_tracking.keys() 
                        if int(user_id) in IGNORED_USER_IDS]
+    
+    logging.info(f"Startup cleanup: Found {len(users_to_remove)} ignored users to remove")
     for user_id in users_to_remove:
+        username = voice_time_tracking[user_id].get('username', 'Unknown')
         del voice_time_tracking[user_id]
-        logging.info(f"Cleaned up ignored user {user_id} from memory on startup")
+        logging.info(f"Startup cleanup: Removed ignored user {user_id} ({username})")
     
     if users_to_remove:
         # Save the cleaned up memory immediately
         with open('memory.json', 'w') as f:
             json.dump(voice_time_tracking, f, indent=4)
+        logging.info("Startup cleanup: Saved cleaned memory.json")
 except (FileNotFoundError, json.JSONDecodeError):
     voice_time_tracking = {}
 
@@ -475,8 +487,11 @@ async def update_tracking_for_specific_channel(channel):
     non_ignored_members = [m for m in channel.members if m.id not in get_ignored_users()]
     logging.info(f"Checking ALL {len(non_ignored_members)} members in channel '{channel.name}' for status updates")
     
-    # CRITICAL: Check EVERY SINGLE MEMBER in the channel
+    # CRITICAL: Check EVERY SINGLE MEMBER in the channel (except ignored users)
     for member in channel.members:
+        # Skip ignored users
+        if member.id in get_ignored_users():
+            continue
             
         members_checked += 1
         member_id = str(member.id)
