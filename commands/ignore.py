@@ -37,11 +37,11 @@ def setup_ignore(bot, reload_ignored_users_func):
             user = ctx.guild.get_member(user_id)
             user_name = user.display_name if user else f"User ID {user_id}"
             
-            await ctx.send(f"✅ Added {user_name} to the ignore list. They will be excluded from the leaderboard.")
-            logging.info(f"Added user {user_id} to ignore list by {ctx.author}")
-            
-            # Reload the ignore configuration
+            # Reload the ignore configuration (this will also clean up voice_time_tracking)
             reload_ignored_users_func()
+            
+            await ctx.send(f"✅ Added {user_name} to the ignore list. They will be excluded from the leaderboard and their tracking data has been removed.")
+            logging.info(f"Added user {user_id} to ignore list by {ctx.author}")
             
         except FileNotFoundError:
             await ctx.send("❌ Ignore file not found. Please contact an administrator.")

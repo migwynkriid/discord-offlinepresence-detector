@@ -100,6 +100,16 @@ def reload_ignored_users():
     """Reload the ignored users list from file."""
     global IGNORED_USER_IDS
     IGNORED_USER_IDS = load_ignored_users()
+    
+    # Remove ignored users from voice_time_tracking
+    users_to_remove = [user_id for user_id in voice_time_tracking.keys() 
+                       if int(user_id) in IGNORED_USER_IDS]
+    for user_id in users_to_remove:
+        del voice_time_tracking[user_id]
+        logging.info(f"Removed ignored user {user_id} from voice tracking")
+    
+    if users_to_remove:
+        save_memory()
 
 def reload_afk_channels():
     """Reload the AFK channels list from file."""
@@ -114,6 +124,18 @@ def get_ignored_users():
 try:
     with open('memory.json', 'r') as f:
         voice_time_tracking = json.load(f)
+    
+    # Clean up any ignored users from loaded data
+    users_to_remove = [user_id for user_id in voice_time_tracking.keys() 
+                       if int(user_id) in IGNORED_USER_IDS]
+    for user_id in users_to_remove:
+        del voice_time_tracking[user_id]
+        logging.info(f"Cleaned up ignored user {user_id} from memory on startup")
+    
+    if users_to_remove:
+        # Save the cleaned up memory immediately
+        with open('memory.json', 'w') as f:
+            json.dump(voice_time_tracking, f, indent=4)
 except (FileNotFoundError, json.JSONDecodeError):
     voice_time_tracking = {}
 
