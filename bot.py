@@ -339,8 +339,8 @@ async def on_ready():
 
 # Setup commands
 setup_leaderboard(bot, voice_time_tracking, get_ignored_users, update_voice_times)
-setup_restart(bot, save_memory, periodic_update)
-setup_update(bot, save_memory, periodic_update)
+setup_restart(bot, save_memory, periodic_update, update_voice_times)
+setup_update(bot, save_memory, periodic_update, update_voice_times)
 setup_watchlist(bot)
 setup_ignore(bot, reload_ignored_users)
 setup_listid(bot)

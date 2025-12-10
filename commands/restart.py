@@ -4,7 +4,7 @@ import subprocess
 import logging
 from discord.ext import commands
 
-def setup_restart(bot, save_memory, periodic_update):
+def setup_restart(bot, save_memory, periodic_update, update_voice_times):
     @bot.command(name='restart')
     async def restart(ctx):
         """Restart the bot. Only allowed for specific administrator."""
@@ -16,6 +16,8 @@ def setup_restart(bot, save_memory, periodic_update):
         logging.info("Restart command received. Restarting bot...")
         save_memory()
         periodic_update.stop()
+        update_voice_times()  # Update all active voice times before saving
+        save_memory()
         
         script_path = os.path.abspath(sys.argv[0])
         subprocess.Popen([sys.executable, script_path])

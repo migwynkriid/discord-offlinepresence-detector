@@ -4,7 +4,7 @@ import subprocess
 import logging
 from discord.ext import commands
 
-def setup_update(bot, save_memory, periodic_update):
+def setup_update(bot, save_memory, periodic_update, update_voice_times):
     @bot.command(name='update')
     async def update(ctx):
         """Update the bot from GitHub and restart. Only allowed for specific administrator."""
@@ -35,6 +35,8 @@ def setup_update(bot, save_memory, periodic_update):
                     # Save state and stop periodic updates
                     save_memory()
                     periodic_update.stop()
+                    update_voice_times()  # Update all active voice times before saving
+                    save_memory()
                     
                     # Restart the bot
                     script_path = os.path.abspath(sys.argv[0])
