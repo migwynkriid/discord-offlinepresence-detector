@@ -110,6 +110,22 @@ def get_ignored_users():
     """Get the current ignored users list."""
     return IGNORED_USER_IDS
 
+def is_muted_and_deafened(member):
+    """Check if a member is both muted AND deafened (either self or server).
+    Users who are both muted AND deafened should not be tracked.
+    """
+    if not member.voice:
+        return False
+    
+    # Check if muted (either self-muted or server-muted)
+    is_muted = member.voice.self_mute or member.voice.mute
+    
+    # Check if deafened (either self-deafened or server-deafened)
+    is_deafened = member.voice.self_deaf or member.voice.deaf
+    
+    # Return True only if BOTH muted AND deafened
+    return is_muted and is_deafened
+
 # Load voice tracking data from memory.json if it exists
 try:
     with open('memory.json', 'r') as f:
@@ -377,13 +393,21 @@ async def on_voice_state_update(member, before, after):
             logging.info(f"User joined AFK channel - marked as in voice but not tracked")
         else:
             # Count non-ignored members in the channel (including the joining member)
-            non_ignored_members = [m for m in after.channel.members if m.id not in get_ignored_users()]
+            # Exclude users who are both muted AND deafened from being counted
+            non_ignored_members = [m for m in after.channel.members if m.id not in get_ignored_users() and not is_muted_and_deafened(m)]
             
-            # Only start tracking if there are multiple people in the channel
-            if len(non_ignored_members) >= 2:
+            # Check if the joining user is both muted AND deafened
+            if is_muted_and_deafened(member):
+                # Mark as in voice but don't track (muted AND deafened)
+                voice_time_tracking[member_id]['in_voice'] = True
+                if 'join_time' in voice_time_tracking[member_id]:
+                    del voice_time_tracking[member_id]['join_time']
+                logging.info(f"User {member.name} is muted AND deafened - marked as in voice but not tracked")
+            # Only start tracking if there are multiple people in the channel who can be tracked
+            elif len(non_ignored_members) >= 2:
                 voice_time_tracking[member_id]['join_time'] = current_time
                 voice_time_tracking[member_id]['in_voice'] = True
-                logging.info(f"Started tracking for {member.name} (channel now has {len(non_ignored_members)} members)")
+                logging.info(f"Started tracking for {member.name} (channel now has {len(non_ignored_members)} trackable members)")
             else:
                 # If alone, mark as in voice but don't set join_time (no tracking)
                 voice_time_tracking[member_id]['in_voice'] = True
@@ -450,8 +474,9 @@ async def update_tracking_for_specific_channel(channel):
         save_memory()
         return
     
-    non_ignored_members = [m for m in channel.members if m.id not in get_ignored_users()]
-    logging.info(f"Checking ALL {len(non_ignored_members)} members in channel '{channel.name}' for status updates")
+    # Count members excluding ignored users AND those who are both muted and deafened
+    non_ignored_members = [m for m in channel.members if m.id not in get_ignored_users() and not is_muted_and_deafened(m)]
+    logging.info(f"Checking ALL {len(non_ignored_members)} trackable members in channel '{channel.name}' for status updates")
     
     # CRITICAL: Check EVERY SINGLE MEMBER in the channel
     for member in channel.members:
@@ -472,22 +497,26 @@ async def update_tracking_for_specific_channel(channel):
             # Ensure they're marked as in voice
             voice_time_tracking[member_id]['in_voice'] = True
         
-        # Determine if tracking should be active based on member count
-        should_track = len(non_ignored_members) >= 2
+        # Check if user is both muted AND deafened
+        user_muted_and_deafened = is_muted_and_deafened(member)
+        
+        # Determine if tracking should be active based on member count and mute/deafen status
+        should_track = len(non_ignored_members) >= 2 and not user_muted_and_deafened
         is_currently_tracking = 'join_time' in voice_time_tracking[member_id]
         
         if should_track and not is_currently_tracking:
             # Should be tracking but isn't - start tracking
             voice_time_tracking[member_id]['join_time'] = current_time
             members_updated += 1
-            logging.debug(f"Started tracking for {member.name} (channel has {len(non_ignored_members)} members)")
+            logging.debug(f"Started tracking for {member.name} (channel has {len(non_ignored_members)} trackable members)")
         elif not should_track and is_currently_tracking:
             # Shouldn't be tracking but is - stop tracking and save time
             time_spent = current_time - voice_time_tracking[member_id]['join_time']
             voice_time_tracking[member_id]['total_time'] += time_spent
             del voice_time_tracking[member_id]['join_time']
             members_updated += 1
-            logging.debug(f"Stopped tracking for {member.name} (channel has {len(non_ignored_members)} members)")
+            reason = "muted AND deafened" if user_muted_and_deafened else f"channel has {len(non_ignored_members)} trackable members"
+            logging.debug(f"Stopped tracking for {member.name} ({reason})")
     
     logging.info(f"Channel status check complete: {members_checked} members checked, {members_updated} members updated")
     save_memory()
@@ -521,7 +550,8 @@ async def update_tracking_for_channel_changes():
                                 del voice_time_tracking[member_id]['join_time']
                 continue
             
-            non_ignored_members = [m for m in channel.members if m.id not in get_ignored_users()]
+            # Count members excluding ignored users AND those who are both muted and deafened
+            non_ignored_members = [m for m in channel.members if m.id not in get_ignored_users() and not is_muted_and_deafened(m)]
             
             # For each member in the channel
             for member in channel.members:
@@ -541,8 +571,11 @@ async def update_tracking_for_channel_changes():
                     # Ensure they're marked as in voice
                     voice_time_tracking[member_id]['in_voice'] = True
                 
-                # Determine if tracking should be active based on member count
-                should_track = len(non_ignored_members) >= 2
+                # Check if user is both muted AND deafened
+                user_muted_and_deafened = is_muted_and_deafened(member)
+                
+                # Determine if tracking should be active based on member count and mute/deafen status
+                should_track = len(non_ignored_members) >= 2 and not user_muted_and_deafened
                 is_currently_tracking = 'join_time' in voice_time_tracking[member_id]
                 
                 if should_track and not is_currently_tracking:
