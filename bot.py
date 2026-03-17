@@ -19,6 +19,7 @@ from commands.ignore import setup_ignore
 from commands.listid import setup_listid
 from commands.backup import setup_backup
 from commands.afkchannel import setup_afkchannel
+from commands.timeedit import setup_timeedit
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -374,6 +375,7 @@ setup_ignore(bot, reload_ignored_users)
 setup_listid(bot)
 setup_backup(bot)
 setup_afkchannel(bot, reload_afk_channels)
+setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory)
 
 @bot.event
 async def on_voice_state_update(member, before, after):
