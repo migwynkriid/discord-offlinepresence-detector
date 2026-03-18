@@ -5,6 +5,34 @@ import logging
 import re
 
 def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
+    def resolve_user(identifier):
+        """
+        Resolve a user identifier to a user ID.
+        Accepts: user ID (numeric string) or Discord username/tag.
+        Returns: (user_id, error_message) tuple. error_message is None on success.
+        """
+        # First, check if identifier is a numeric user ID
+        if identifier.isdigit():
+            return identifier, None
+        
+        # Otherwise, search by username (case-insensitive)
+        identifier_lower = identifier.lower()
+        matches = []
+        
+        for user_id, data in voice_time_tracking.items():
+            username = data.get('username', '').lower()
+            if username == identifier_lower or username.startswith(identifier_lower):
+                matches.append((user_id, data.get('username', '')))
+        
+        if len(matches) == 0:
+            return None, f"❌ No user found matching '{identifier}'. Try using their user ID instead."
+        elif len(matches) == 1:
+            return matches[0][0], None
+        else:
+            # Multiple matches - show them to the user
+            match_list = '\n'.join([f"• {name} (ID: {uid})" for uid, name in matches[:10]])
+            return None, f"❌ Multiple users match '{identifier}':\n{match_list}\nPlease use the user ID instead."
+    
     def parse_time_string(time_str):
         """
         Parse time string like '1h 22m', '1h', '22m' and return total seconds.
@@ -33,16 +61,17 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
             return None
     
     @bot.command(name='add')
-    async def add_time(ctx, user_id: str, *time_parts):
+    async def add_time(ctx, user_identifier: str, *time_parts):
         """
         Add time to a user's total time.
-        Usage: !add USER_ID 1h 22m  OR  !add USER_ID 1h  OR  !add USER_ID 22m
+        Usage: !add USER_ID/USERNAME 1h 22m  OR  !add USER_ID/USERNAME 1h  OR  !add USER_ID/USERNAME 22m
+        You can use either the user's ID or their Discord username.
         """
         # Join all time parts into a single string
         time_str = ' '.join(time_parts)
         
         if not time_str:
-            await ctx.send("❌ Please specify time to add (e.g., `!add USER_ID 1h 22m`)")
+            await ctx.send("❌ Please specify time to add (e.g., `!add USER_ID 1h 22m` or `!add username 1h 22m`)")
             return
         
         # Parse the time string
@@ -55,6 +84,12 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
         try:
             # Update all voice times first to ensure accurate current values
             update_voice_times()
+            
+            # Resolve user identifier to user ID
+            user_id, error = resolve_user(user_identifier)
+            if error:
+                await ctx.send(error)
+                return
             
             # Check if user exists in tracking
             if user_id not in voice_time_tracking:
@@ -96,16 +131,17 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
             logging.error(f"Error adding time for user {user_id}: {e}")
     
     @bot.command(name='remove')
-    async def remove_time(ctx, user_id: str, *time_parts):
+    async def remove_time(ctx, user_identifier: str, *time_parts):
         """
         Remove time from a user's total time.
-        Usage: !remove USER_ID 1h 22m  OR  !remove USER_ID 1h  OR  !remove USER_ID 22m
+        Usage: !remove USER_ID/USERNAME 1h 22m  OR  !remove USER_ID/USERNAME 1h  OR  !remove USER_ID/USERNAME 22m
+        You can use either the user's ID or their Discord username.
         """
         # Join all time parts into a single string
         time_str = ' '.join(time_parts)
         
         if not time_str:
-            await ctx.send("❌ Please specify time to remove (e.g., `!remove USER_ID 1h 22m`)")
+            await ctx.send("❌ Please specify time to remove (e.g., `!remove USER_ID 1h 22m` or `!remove username 1h 22m`)")
             return
         
         # Parse the time string
@@ -119,9 +155,15 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
             # Update all voice times first to ensure accurate current values
             update_voice_times()
             
+            # Resolve user identifier to user ID
+            user_id, error = resolve_user(user_identifier)
+            if error:
+                await ctx.send(error)
+                return
+            
             # Check if user exists in tracking
             if user_id not in voice_time_tracking:
-                await ctx.send(f"❌ User ID {user_id} is not in the tracking system.")
+                await ctx.send(f"❌ User '{user_identifier}' is not in the tracking system.")
                 return
             
             # Remove the time from total_time (but don't go below 0)
