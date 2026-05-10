@@ -4,5 +4,8 @@
     226711001469288448,
     97407220936884224
   ],
-  "offline_message": "<@{user_id}> ka dialas offline budala"
+  "offline_message": "<@{user_id}> ka dialas offline budala",
+  "on_join_messages": {
+    "289010485737553921": "pak kasniš budala"
+  }
 }

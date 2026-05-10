@@ -42,6 +42,9 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Dictionary to store the last message time for each user
 last_message_time = {}
 
+# Dictionary to store the last on-join message time for each user (rate limit: once per day)
+last_on_join_message_time = {}
+
 # Load ignored user IDs from ignore.json
 def load_ignored_users():
     """Load ignored user IDs from ignore.json file"""
@@ -62,14 +65,16 @@ def load_watchlist_config():
             return {
                 'watch_everyone': data.get('watch_everyone', False),
                 'watched_user_ids': data.get('watched_user_ids', []),
-                'offline_message': data.get('offline_message', '<@{user_id}> is now offline')
+                'offline_message': data.get('offline_message', '<@{user_id}> is now offline'),
+                'on_join_messages': data.get('on_join_messages', {})
             }
     except (FileNotFoundError, json.JSONDecodeError):
         logging.warning("watchlist.json not found or invalid, using default config")
         return {
             'watch_everyone': False, 
             'watched_user_ids': [],
-            'offline_message': '<@{user_id}> is now offline'
+            'offline_message': '<@{user_id}> is now offline',
+            'on_join_messages': {}
         }
 
 # Load AFK channels configuration from afkchannels.json
@@ -419,6 +424,40 @@ async def on_voice_state_update(member, before, after):
     # Handle joining voice channel
     if after and after.channel:
         logging.info(f"VOICE JOIN EVENT: {member.name} joined channel '{after.channel.name}' - checking ALL members")
+        
+        # Check for on_join_message - only send if user is actually joining (not switching channels or already in voice)
+        is_new_join = not before.channel or before.channel != after.channel
+        if is_new_join:
+            user_id_str = str(member.id)
+            on_join_messages = WATCHLIST_CONFIG.get('on_join_messages', {})
+            if user_id_str in on_join_messages:
+                # Check rate limit - only send once per day
+                current_datetime = datetime.now()
+                last_sent = last_on_join_message_time.get(member.id)
+                
+                if last_sent is None or (current_datetime - last_sent) > timedelta(days=1):
+                    # Find a text channel to send the message to
+                    text_channel = None
+                    # Try to find the guild's system channel first
+                    if after.channel.guild.system_channel and after.channel.guild.system_channel.permissions_for(after.channel.guild.me).send_messages:
+                        text_channel = after.channel.guild.system_channel
+                    else:
+                        # Fall back to first text channel the bot can write to
+                        for channel in after.channel.guild.text_channels:
+                            if channel.permissions_for(after.channel.guild.me).send_messages:
+                                text_channel = channel
+                                break
+                    
+                    if text_channel:
+                        join_message = on_join_messages[user_id_str]
+                        # Support {user_id} placeholder like offline_message
+                        join_message = join_message.format(user_id=member.id) if '{user_id}' in join_message else join_message
+                        await text_channel.send(join_message)
+                        last_on_join_message_time[member.id] = current_datetime
+                        logging.info(f"Sent on_join_message for {member.name}: {join_message}")
+                else:
+                    logging.info(f"Skipped on_join_message for {member.name} - already sent today")
+        
         # Check if the channel is an AFK channel - if so, don't track time
         if after.channel.id in AFK_CHANNEL_IDS:
             # Mark as in voice but don't track time in AFK channels

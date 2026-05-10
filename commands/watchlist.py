@@ -128,4 +128,120 @@ def setup_watchlist(bot):
             await ctx.send(f"❌ An error occurred: {str(e)}")
             logging.error(f"Error listing watchlist: {e}")
     
+    @watchlist.group(name='onjoin', invoke_without_command=True)
+    async def watchlist_onjoin(ctx):
+        """Manage on-join messages for users."""
+        await ctx.send("Usage: `!watchlist onjoin set <user_id> <message>`, `!watchlist onjoin remove <user_id>`, or `!watchlist onjoin list`")
+    
+    @watchlist_onjoin.command(name='set')
+    async def onjoin_set(ctx, user_id: int, *, message: str):
+        """Set an on-join message for a user."""
+        try:
+            # Load current watchlist
+            with open('watchlist.json', 'r') as f:
+                data = json.load(f)
+            
+            # Initialize on_join_messages if not exists
+            if 'on_join_messages' not in data:
+                data['on_join_messages'] = {}
+            
+            # Set the message for this user
+            data['on_join_messages'][str(user_id)] = message
+            
+            # Save updated watchlist
+            with open('watchlist.json', 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            # Try to get user's display name
+            user = ctx.guild.get_member(user_id)
+            user_name = user.display_name if user else f"User ID {user_id}"
+            
+            await ctx.send(f"✅ Set on-join message for {user_name}: `{message}`")
+            logging.info(f"Set on-join message for user {user_id} by {ctx.author}: {message}")
+            
+            # Reload the watchlist configuration
+            reload_watchlist_config()
+            
+        except FileNotFoundError:
+            await ctx.send("❌ Watchlist file not found. Please contact an administrator.")
+        except json.JSONDecodeError:
+            await ctx.send("❌ Error reading watchlist file. Please contact an administrator.")
+        except Exception as e:
+            await ctx.send(f"❌ An error occurred: {str(e)}")
+            logging.error(f"Error setting on-join message: {e}")
+    
+    @watchlist_onjoin.command(name='remove')
+    async def onjoin_remove(ctx, user_id: int):
+        """Remove an on-join message for a user."""
+        try:
+            # Load current watchlist
+            with open('watchlist.json', 'r') as f:
+                data = json.load(f)
+            
+            on_join_messages = data.get('on_join_messages', {})
+            user_id_str = str(user_id)
+            
+            if user_id_str not in on_join_messages:
+                await ctx.send(f"User ID {user_id} does not have an on-join message set.")
+                return
+            
+            # Remove the message
+            del data['on_join_messages'][user_id_str]
+            
+            # Save updated watchlist
+            with open('watchlist.json', 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            # Try to get user's display name
+            user = ctx.guild.get_member(user_id)
+            user_name = user.display_name if user else f"User ID {user_id}"
+            
+            await ctx.send(f"✅ Removed on-join message for {user_name}.")
+            logging.info(f"Removed on-join message for user {user_id} by {ctx.author}")
+            
+            # Reload the watchlist configuration
+            reload_watchlist_config()
+            
+        except FileNotFoundError:
+            await ctx.send("❌ Watchlist file not found. Please contact an administrator.")
+        except json.JSONDecodeError:
+            await ctx.send("❌ Error reading watchlist file. Please contact an administrator.")
+        except Exception as e:
+            await ctx.send(f"❌ An error occurred: {str(e)}")
+            logging.error(f"Error removing on-join message: {e}")
+    
+    @watchlist_onjoin.command(name='list')
+    async def onjoin_list(ctx):
+        """List all on-join messages."""
+        try:
+            # Load current watchlist
+            with open('watchlist.json', 'r') as f:
+                data = json.load(f)
+            
+            on_join_messages = data.get('on_join_messages', {})
+            
+            if not on_join_messages:
+                await ctx.send("📝 No on-join messages configured.")
+                return
+            
+            # Build list
+            message_list = "📝 **On-Join Messages:**\n\n"
+            for user_id_str, message in on_join_messages.items():
+                user_id = int(user_id_str)
+                user = ctx.guild.get_member(user_id)
+                if user:
+                    message_list += f"• **{user.display_name}** (ID: {user_id}): `{message}`\n"
+                else:
+                    message_list += f"• **Unknown User** (ID: {user_id}): `{message}`\n"
+            
+            await ctx.send(message_list)
+            
+        except FileNotFoundError:
+            await ctx.send("❌ Watchlist file not found. Please contact an administrator.")
+        except json.JSONDecodeError:
+            await ctx.send("❌ Error reading watchlist file. Please contact an administrator.")
+        except Exception as e:
+            await ctx.send(f"❌ An error occurred: {str(e)}")
+            logging.error(f"Error listing on-join messages: {e}")
+    
     return watchlist
