@@ -452,9 +452,11 @@ async def on_voice_state_update(member, before, after):
                         join_message = on_join_messages[user_id_str]
                         # Support {user_id} placeholder like offline_message
                         join_message = join_message.format(user_id=member.id) if '{user_id}' in join_message else join_message
-                        await text_channel.send(join_message)
+                        # Always mention the user before the message
+                        full_message = f"<@{member.id}> {join_message}"
+                        await text_channel.send(full_message)
                         last_on_join_message_time[member.id] = current_datetime
-                        logging.info(f"Sent on_join_message for {member.name}: {join_message}")
+                        logging.info(f"Sent on_join_message for {member.name}: {full_message}")
                 else:
                     logging.info(f"Skipped on_join_message for {member.name} - already sent today")
         
