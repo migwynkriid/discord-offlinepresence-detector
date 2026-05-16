@@ -442,6 +442,31 @@ async def on_ready():
     current_time = datetime.now().timestamp()
     for guild in bot.guilds:
         for voice_channel in guild.voice_channels:
+            # Skip AFK channels
+            if voice_channel.id in AFK_CHANNEL_IDS:
+                for member in voice_channel.members:
+                    if member.id in IGNORED_USER_IDS:
+                        continue
+                    member_id = str(member.id)
+                    if member_id not in voice_time_tracking:
+                        voice_time_tracking[member_id] = {
+                            'username': member.name,
+                            'total_time': 0,
+                            'in_voice': True
+                        }
+                    else:
+                        voice_time_tracking[member_id]['in_voice'] = True
+                    # Don't set join_time for AFK channels
+                    logging.info(f"Found user {member.name} in AFK channel {voice_channel.name} - not tracking")
+                continue
+            
+            # Get trackable members (not ignored, not muted+deafened)
+            trackable_members = [
+                m for m in voice_channel.members 
+                if m.id not in IGNORED_USER_IDS and not is_muted_and_deafened(m)
+            ]
+            should_track = len(trackable_members) >= 2
+            
             for member in voice_channel.members:
                 # Skip ignored users
                 if member.id in IGNORED_USER_IDS:
@@ -452,13 +477,20 @@ async def on_ready():
                     voice_time_tracking[member_id] = {
                         'username': member.name,
                         'total_time': 0,
-                        'in_voice': False
+                        'in_voice': True
                     }
+                else:
+                    voice_time_tracking[member_id]['in_voice'] = True
                 
-                # Update status and join time for users already in voice
-                voice_time_tracking[member_id]['in_voice'] = True
-                voice_time_tracking[member_id]['join_time'] = current_time
-                logging.info(f"Found user {member.name} in channel {voice_channel.name}")
+                # Only set join_time if there are 2+ trackable members and user isn't muted+deafened
+                if should_track and not is_muted_and_deafened(member):
+                    voice_time_tracking[member_id]['join_time'] = current_time
+                    logging.info(f"Found user {member.name} in channel {voice_channel.name} - tracking started")
+                else:
+                    # Remove join_time if it exists (user is alone or muted+deafened)
+                    if 'join_time' in voice_time_tracking[member_id]:
+                        del voice_time_tracking[member_id]['join_time']
+                    logging.info(f"Found user {member.name} in channel {voice_channel.name} - not tracking (alone or muted+deafened)")
     
     save_memory()
     periodic_update.start()  # Start the periodic update task
