@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import json
 import logging
 
-def setup_listid(bot):
+
+def setup_listid(bot: commands.Bot) -> None:
     @bot.command(name='listid')
-    async def listid(ctx):
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def listid(ctx: commands.Context) -> None:
         """List all user IDs and usernames from memory.json (Manage Server permission required)."""
         # Check if the user has manage server permissions
         if not ctx.author.guild_permissions.manage_guild:

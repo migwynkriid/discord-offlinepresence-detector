@@ -1,11 +1,20 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import json
 import logging
 import re
+from typing import Callable, Optional
 
-def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
-    def resolve_user(identifier):
+
+def setup_timeedit(
+    bot: commands.Bot,
+    voice_time_tracking: dict,
+    update_voice_times: Callable[[], None],
+    save_memory: Callable[[], None]
+) -> None:
+    def resolve_user(identifier: str) -> tuple[str | None, str | None]:
         """
         Resolve a user identifier to a user ID.
         Accepts: user ID (numeric string) or Discord username/tag.
@@ -17,7 +26,7 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
         
         # Otherwise, search by username (case-insensitive)
         identifier_lower = identifier.lower()
-        matches = []
+        matches: list[tuple[str, str]] = []
         
         for user_id, data in voice_time_tracking.items():
             username = data.get('username', '').lower()
@@ -33,7 +42,7 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
             match_list = '\n'.join([f"• {name} (ID: {uid})" for uid, name in matches[:10]])
             return None, f"❌ Multiple users match '{identifier}':\n{match_list}\nPlease use the user ID instead."
     
-    def parse_time_string(time_str):
+    def parse_time_string(time_str: str) -> int | None:
         """
         Parse time string like '1h 22m', '1h', '22m' and return total seconds.
         Returns None if parsing fails.
@@ -61,12 +70,19 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
             return None
     
     @bot.command(name='add')
-    async def add_time(ctx, user_identifier: str, *time_parts):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def add_time(ctx: commands.Context, user_identifier: str, *time_parts: str) -> None:
         """
         Add time to a user's total time.
         Usage: !add USER_ID/USERNAME 1h 22m  OR  !add USER_ID/USERNAME 1h  OR  !add USER_ID/USERNAME 22m
         You can use either the user's ID or their Discord username.
+        Requires 'Manage Server' permission.
         """
+        # Check permissions
+        if not ctx.author.guild_permissions.manage_guild:
+            await ctx.send("❌ This command requires 'Manage Server' permission.")
+            return
+        
         # Join all time parts into a single string
         time_str = ' '.join(time_parts)
         
@@ -131,12 +147,19 @@ def setup_timeedit(bot, voice_time_tracking, update_voice_times, save_memory):
             logging.error(f"Error adding time for user {user_id}: {e}")
     
     @bot.command(name='remove')
-    async def remove_time(ctx, user_identifier: str, *time_parts):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def remove_time(ctx: commands.Context, user_identifier: str, *time_parts: str) -> None:
         """
         Remove time from a user's total time.
         Usage: !remove USER_ID/USERNAME 1h 22m  OR  !remove USER_ID/USERNAME 1h  OR  !remove USER_ID/USERNAME 22m
         You can use either the user's ID or their Discord username.
+        Requires 'Manage Server' permission.
         """
+        # Check permissions
+        if not ctx.author.guild_permissions.manage_guild:
+            await ctx.send("❌ This command requires 'Manage Server' permission.")
+            return
+        
         # Join all time parts into a single string
         time_str = ' '.join(time_parts)
         

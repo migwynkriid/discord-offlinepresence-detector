@@ -1,18 +1,22 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import json
 import logging
+from typing import Callable
 
-def setup_afkchannel(bot, reload_afk_channels_func):
-    # Use the reload function passed as parameter to avoid circular imports
-    
+
+def setup_afkchannel(bot: commands.Bot, reload_afk_channels_func: Callable[[], None]) -> None:
     @bot.group(name='afkchannel', invoke_without_command=True)
-    async def afkchannel(ctx):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def afkchannel(ctx: commands.Context) -> None:
         """Manage AFK channels where voice chat tracking is disabled."""
         await ctx.send("Usage: `!afkchannel add <channel_id>`, `!afkchannel remove <channel_id>`, or `!afkchannel list`")
     
     @afkchannel.command(name='add')
-    async def afkchannel_add(ctx, channel_id: int):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def afkchannel_add(ctx: commands.Context, channel_id: int) -> None:
         """Add a voice channel to the AFK list (no tracking regardless of member count)."""
         try:
             # Verify the channel exists and is a voice channel
@@ -61,7 +65,8 @@ def setup_afkchannel(bot, reload_afk_channels_func):
             logging.error(f"Error adding channel to AFK list: {e}")
     
     @afkchannel.command(name='remove')
-    async def afkchannel_remove(ctx, channel_id: int):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def afkchannel_remove(ctx: commands.Context, channel_id: int) -> None:
         """Remove a voice channel from the AFK list."""
         try:
             # Load current AFK channels list
@@ -103,7 +108,8 @@ def setup_afkchannel(bot, reload_afk_channels_func):
             logging.error(f"Error removing channel from AFK list: {e}")
     
     @afkchannel.command(name='list')
-    async def afkchannel_list(ctx):
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def afkchannel_list(ctx: commands.Context) -> None:
         """List all voice channels in the AFK list."""
         try:
             # Load current AFK channels list

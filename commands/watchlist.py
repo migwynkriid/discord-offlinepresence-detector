@@ -1,19 +1,24 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import json
 import logging
+from typing import Callable
 
-def setup_watchlist(bot):
-    # Import the reload function from bot module
-    from bot import reload_watchlist_config
+
+def setup_watchlist(bot: commands.Bot, reload_watchlist_config_func: Callable[[], None]) -> None:
+    reload_watchlist_config = reload_watchlist_config_func
     
     @bot.group(name='watchlist', invoke_without_command=True)
-    async def watchlist(ctx):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def watchlist(ctx: commands.Context) -> None:
         """Manage the watchlist for offline presence detection."""
         await ctx.send("Usage: `!watchlist add <user_id>`, `!watchlist remove <user_id>`, or `!watchlist list`")
     
     @watchlist.command(name='add')
-    async def watchlist_add(ctx, user_id: int):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def watchlist_add(ctx: commands.Context, user_id: int) -> None:
         """Add a user to the watchlist."""
         try:
             # Load current watchlist
@@ -53,7 +58,8 @@ def setup_watchlist(bot):
             logging.error(f"Error adding user to watchlist: {e}")
     
     @watchlist.command(name='remove')
-    async def watchlist_remove(ctx, user_id: int):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def watchlist_remove(ctx: commands.Context, user_id: int) -> None:
         """Remove a user from the watchlist."""
         try:
             # Load current watchlist
@@ -91,7 +97,8 @@ def setup_watchlist(bot):
             logging.error(f"Error removing user from watchlist: {e}")
     
     @watchlist.command(name='list')
-    async def watchlist_list(ctx):
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def watchlist_list(ctx: commands.Context) -> None:
         """List all users in the watchlist."""
         try:
             # Load current watchlist
@@ -129,12 +136,14 @@ def setup_watchlist(bot):
             logging.error(f"Error listing watchlist: {e}")
     
     @watchlist.group(name='onjoin', invoke_without_command=True)
-    async def watchlist_onjoin(ctx):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def watchlist_onjoin(ctx: commands.Context) -> None:
         """Manage on-join messages for users."""
         await ctx.send("Usage: `!watchlist onjoin set <user_id> <message>`, `!watchlist onjoin remove <user_id>`, or `!watchlist onjoin list`")
     
     @watchlist_onjoin.command(name='set')
-    async def onjoin_set(ctx, user_id: int, *, message: str):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def onjoin_set(ctx: commands.Context, user_id: int, *, message: str) -> None:
         """Set an on-join message for a user."""
         try:
             # Load current watchlist
@@ -171,7 +180,8 @@ def setup_watchlist(bot):
             logging.error(f"Error setting on-join message: {e}")
     
     @watchlist_onjoin.command(name='remove')
-    async def onjoin_remove(ctx, user_id: int):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def onjoin_remove(ctx: commands.Context, user_id: int) -> None:
         """Remove an on-join message for a user."""
         try:
             # Load current watchlist
@@ -211,7 +221,8 @@ def setup_watchlist(bot):
             logging.error(f"Error removing on-join message: {e}")
     
     @watchlist_onjoin.command(name='list')
-    async def onjoin_list(ctx):
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def onjoin_list(ctx: commands.Context) -> None:
         """List all on-join messages."""
         try:
             # Load current watchlist

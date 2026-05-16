@@ -1,18 +1,22 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import json
 import logging
+from typing import Callable
 
-def setup_ignore(bot, reload_ignored_users_func):
-    # Use the reload function passed as parameter to avoid circular imports
-    
+
+def setup_ignore(bot: commands.Bot, reload_ignored_users_func: Callable[[], None]) -> None:
     @bot.group(name='ignore', invoke_without_command=True)
-    async def ignore(ctx):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def ignore(ctx: commands.Context) -> None:
         """Manage the ignore list for voice chat tracking."""
         await ctx.send("Usage: `!ignore add <user_id>`, `!ignore remove <user_id>`, or `!ignore list`")
     
     @ignore.command(name='add')
-    async def ignore_add(ctx, user_id: int):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def ignore_add(ctx: commands.Context, user_id: int) -> None:
         """Add a user to the ignore list."""
         try:
             # Load current ignore list
@@ -52,7 +56,8 @@ def setup_ignore(bot, reload_ignored_users_func):
             logging.error(f"Error adding user to ignore list: {e}")
     
     @ignore.command(name='remove')
-    async def ignore_remove(ctx, user_id: int):
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def ignore_remove(ctx: commands.Context, user_id: int) -> None:
         """Remove a user from the ignore list."""
         try:
             # Load current ignore list
@@ -90,7 +95,8 @@ def setup_ignore(bot, reload_ignored_users_func):
             logging.error(f"Error removing user from ignore list: {e}")
     
     @ignore.command(name='list')
-    async def ignore_list(ctx):
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def ignore_list(ctx: commands.Context) -> None:
         """List all users in the ignore list."""
         try:
             # Load current ignore list

@@ -58,10 +58,13 @@ pip install -r requirements.txt
    ```bash
    cp .env.example .env
    ```
-2. Edit `.env` and add your Discord bot token:
+2. Edit `.env` and add your configuration:
    ```
    DISCORD_TOKEN=your_discord_bot_token_here
+   BOT_ADMIN_ID=your_discord_user_id_here
    ```
+   - `DISCORD_TOKEN`: Your bot's token from Discord Developer Portal
+   - `BOT_ADMIN_ID`: Your Discord user ID (required for `!restart` and `!update` commands)
 
 ### Step 4: Discord Bot Setup
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)

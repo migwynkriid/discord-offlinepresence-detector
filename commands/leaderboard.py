@@ -1,15 +1,25 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 from datetime import datetime
+import logging
+from typing import Callable
 
-def setup_leaderboard(bot, voice_time_tracking, get_ignored_users_func, update_voice_times):
+
+def setup_leaderboard(
+    bot: commands.Bot,
+    voice_time_tracking: dict,
+    get_ignored_users_func: Callable[[], list[int]],
+    update_voice_times: Callable[[], None]
+) -> None:
     @bot.command(name='leaderboard')
-    async def leaderboard(ctx):
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def leaderboard(ctx: commands.Context) -> None:
         """Display the voice chat time leaderboard."""
         # Get current ignored users list
         current_ignored_users = get_ignored_users_func()
         
-        import logging
         logging.info(f"Leaderboard: Ignored users list: {current_ignored_users}")
         logging.info(f"Leaderboard: Total users in tracking: {len(voice_time_tracking)}")
         
