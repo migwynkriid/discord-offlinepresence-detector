@@ -432,30 +432,10 @@ async def on_ready():
     logging.info(f'{bot.user} has connected to Discord!')
     logging.info(f'Bot is in {len(bot.guilds)} guilds')
     
-    # Set bot activity from config
+    # Set bot activity from config (shows as "Playing [activity]")
     activity_text = BOT_CONFIG.get('activity', 'watching your dumbass')
-    activity_text_lower = activity_text.lower()
-    
-    # Parse activity type from the start of the string
-    activity_prefixes = [
-        ('watching ', discord.ActivityType.watching),
-        ('playing ', discord.ActivityType.playing),
-        ('listening to ', discord.ActivityType.listening),
-        ('competing in ', discord.ActivityType.competing),
-        ('streaming ', discord.ActivityType.streaming),
-    ]
-    
-    activity_type = discord.ActivityType.playing  # default
-    activity_name = activity_text
-    
-    for prefix, atype in activity_prefixes:
-        if activity_text_lower.startswith(prefix):
-            activity_type = atype
-            activity_name = activity_text[len(prefix):]
-            break
-    
-    await bot.change_presence(activity=discord.Activity(type=activity_type, name=activity_name))
-    logging.info(f'Set activity to: {activity_text}')
+    await bot.change_presence(activity=discord.Game(name=activity_text))
+    logging.info(f'Set activity to: Playing {activity_text}')
     
     # Organize backup files into subdirectories
     organize_backup_files()
