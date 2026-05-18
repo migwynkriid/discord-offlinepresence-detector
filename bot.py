@@ -42,6 +42,10 @@ class WatchlistConfig(TypedDict):
     on_join_messages: dict[str, str]
 
 
+class BotConfig(TypedDict):
+    activity: str
+
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -129,10 +133,26 @@ def load_afk_channels() -> list[int]:
         return []
 
 
+def load_bot_config() -> BotConfig:
+    """Load bot configuration from config.json file."""
+    try:
+        with open('config.json', 'r') as f:
+            data = json.load(f)
+            return {
+                'activity': data.get('activity', 'watching your dumbass')
+            }
+    except (FileNotFoundError, json.JSONDecodeError):
+        logging.warning("config.json not found or invalid, using default config")
+        return {
+            'activity': 'watching your dumbass'
+        }
+
+
 # Global state
 IGNORED_USER_IDS: list[int] = load_ignored_users()
 WATCHLIST_CONFIG: WatchlistConfig = load_watchlist_config()
 AFK_CHANNEL_IDS: list[int] = load_afk_channels()
+BOT_CONFIG: BotConfig = load_bot_config()
 
 
 def reload_watchlist_config() -> None:
@@ -411,6 +431,31 @@ async def on_ready():
     """Event handler for when the bot is ready and connected to Discord."""
     logging.info(f'{bot.user} has connected to Discord!')
     logging.info(f'Bot is in {len(bot.guilds)} guilds')
+    
+    # Set bot activity from config
+    activity_text = BOT_CONFIG.get('activity', 'watching your dumbass')
+    activity_text_lower = activity_text.lower()
+    
+    # Parse activity type from the start of the string
+    activity_prefixes = [
+        ('watching ', discord.ActivityType.watching),
+        ('playing ', discord.ActivityType.playing),
+        ('listening to ', discord.ActivityType.listening),
+        ('competing in ', discord.ActivityType.competing),
+        ('streaming ', discord.ActivityType.streaming),
+    ]
+    
+    activity_type = discord.ActivityType.playing  # default
+    activity_name = activity_text
+    
+    for prefix, atype in activity_prefixes:
+        if activity_text_lower.startswith(prefix):
+            activity_type = atype
+            activity_name = activity_text[len(prefix):]
+            break
+    
+    await bot.change_presence(activity=discord.Activity(type=activity_type, name=activity_name))
+    logging.info(f'Set activity to: {activity_text}')
     
     # Organize backup files into subdirectories
     organize_backup_files()
